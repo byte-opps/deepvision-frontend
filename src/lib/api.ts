@@ -1,0 +1,169 @@
+import type {
+  User,
+  TokenPair,
+  Image,
+  CaptionResult,
+  FaceDetection,
+  MpiProfile,
+  MpiBodyPart,
+  MpiIntelligence,
+  MpiCase,
+  Tag,
+  Task,
+  TaskStats,
+  ModuleInfo,
+} from '../types'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8076'
+
+async function request<T>(
+  path: string,
+  options?: RequestInit
+): Promise<T> {
+  const token = localStorage.getItem('auth_token')
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Request failed' }))
+    throw new ApiError(error.detail || 'Request failed', res.status)
+  }
+  return res.json() as Promise<T>
+}
+
+export const api = {
+  auth: {
+    login: (data: { username: string; password: string }) =>
+      request<TokenPair>('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    register: (data: { username: string; password: string; email: string }) =>
+      request<TokenPair>('/api/v1/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    me: () => request<User>('/api/v1/auth/me'),
+  },
+  images: {
+    list: (_params?: Record<string, any>) =>
+      request<Image[]>('/api/v1/images', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    get: (id: string) => request<Image>(`/api/v1/images/${id}`),
+    delete: (id: string) =>
+      request<void>(`/api/v1/images/${id}`, { method: 'DELETE' }),
+  },
+  ai: {
+    caption: (id: string) =>
+      request<CaptionResult>(`/api/v1/ai/caption/${id}`),
+    face: (id: string) =>
+      request<FaceDetection[]>(`/api/v1/ai/face/${id}`),
+    faceMatch: (data: { embedding: string }) =>
+      request<{ matches: any[] }>(`/api/v1/ai/face-match`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+  },
+  mpi: {
+    profiles: () => request<MpiProfile[]>('/api/v1/mpi/profiles'),
+    profile: (id: string) => request<MpiProfile>(`/api/v1/mpi/profiles/${id}`),
+    createProfile: (data: Partial<MpiProfile>) =>
+      request<MpiProfile>('/api/v1/mpi/profiles', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    deleteProfile: (id: string) =>
+      request<void>(`/api/v1/mpi/profiles/${id}`, { method: 'DELETE' }),
+    updateProfile: (id: string, data: Partial<MpiProfile>) =>
+      request<MpiProfile>(`/api/v1/mpi/profiles/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    bodyParts: (mpiId: string) =>
+      request<MpiBodyPart[]>(`/api/v1/mpi/profiles/${mpiId}/bp`),
+    intelligence: (mpiId: string) =>
+      request<MpiIntelligence[]>(`/api/v1/mpi/profiles/${mpiId}/intel`),
+    faces: (mpiId: string) =>
+      request<FaceDetection[]>(`/api/v1/mpi/profiles/${mpiId}/faces`),
+    cases: () => request<MpiCase[]>('/api/v1/mpi/cases'),
+    case: (id: string) => request<MpiCase>(`/api/v1/mpi/cases/${id}`),
+    createCase: (data: { name: string; description?: string }) =>
+      request<MpiCase>('/api/v1/mpi/cases', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    deleteCase: (id: string) =>
+      request<void>(`/api/v1/mpi/cases/${id}`, { method: 'DELETE' }),
+    caseMembers: (caseId: string) =>
+      request<MpiProfile[]>(`/api/v1/mpi/cases/${caseId}/members`),
+    addMember: (caseId: string, mpiId: string) =>
+      request<void>(`/api/v1/mpi/cases/${caseId}/members/${mpiId}`, {
+        method: 'POST',
+      }),
+    removeMember: (caseId: string, mpiId: string) =>
+      request<void>(`/api/v1/mpi/cases/${caseId}/members/${mpiId}`, {
+        method: 'DELETE',
+      }),
+  },
+  tags: {
+    list: (imageId: string) =>
+      request<Tag[]>(`/api/v1/tags/${imageId}/tags`),
+    addTag: (imageId: string, tagName: string) =>
+      request<Tag>(`/api/v1/tags/${imageId}/tags`, {
+        method: 'POST',
+        body: JSON.stringify({ tag_name: tagName }),
+      }),
+    deleteTag: (imageId: string, tagName: string) =>
+      request<void>(`/api/v1/tags/${imageId}/tags/${tagName}`, {
+        method: 'DELETE',
+      }),
+  },
+  metadata: {
+    exif: (id: string) =>
+      request<Record<string, any>>(`/api/v1/metadata/${id}/exif`),
+    fileProperties: (id: string) =>
+      request<Record<string, any>>(`/api/v1/metadata/${id}/file_properties`),
+    colorAnalysis: (id: string) =>
+      request<Record<string, any>>(`/api/v1/metadata/${id}/color_analysis`),
+    filenameAnalysis: (id: string) =>
+      request<Record<string, any>>(`/api/v1/metadata/${id}/filename_analysis`),
+  },
+  tasks: {
+    list: () => request<Task[]>('/api/v1/tasks'),
+    stats: () => request<TaskStats>('/api/v1/tasks/stats'),
+    get: (id: string) => request<Task>(`/api/v1/tasks/${id}`),
+    run: () =>
+      request<Task>('/api/v1/tasks/run', { method: 'POST' }),
+    delete: (id: string) =>
+      request<void>(`/api/v1/tasks/${id}`, { method: 'DELETE' }),
+  },
+  modules: {
+    list: () => request<ModuleInfo[]>('/api/v1/modules'),
+    schema: () => request<ModuleInfo[]>('/api/v1/modules/schema'),
+    enable: (name: string) =>
+      request<{ status: string }>(`/api/v1/modules/${name}/enable`, {
+        method: 'POST',
+      }),
+    disable: (name: string) =>
+      request<{ status: string }>(`/api/v1/modules/${name}/disable`, {
+        method: 'POST',
+      }),
+    status: (name: string) =>
+      request<Record<string, any>>(`/api/v1/modules/${name}/status`),
+  },
+}
+
+export class ApiError extends Error {
+  status: number
+  detail: string
+  constructor(detail: string, status: number) {
+    super(detail)
+    this.name = 'ApiError'
+    this.status = status
+    this.detail = detail
+  }
+}

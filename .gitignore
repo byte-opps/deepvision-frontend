@@ -1,0 +1,36 @@
+# Environment / secrets — NEVER commit real configuration here
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Vite dev cache
+.vite/
+
+# Python junk (accidentally created)
+venv/
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+logs/
+
+# Duplicate package dir from earlier setup
+package/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# TypeScript build info
+tsconfig.tsbuildinfo

@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 import { api } from '../lib/api'
 import { reportError } from '../lib/error'
 import type { Task, TaskStats } from '../types'
-import { Play, Trash2, ChevronRight } from 'lucide-react'
+import { Play, Trash2, ChevronRight, CircleStop } from 'lucide-react'
 
 export default function TaskQueue() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -11,6 +11,8 @@ export default function TaskQueue() {
   const [modules, setModules] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
+  const [importJobs, setImportJobs] = useState<Record<string, any>>({})
+  const [processRunning, setProcessRunning] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     Promise.all([api.tasks.list(), api.tasks.stats(), api.modules.list()])
@@ -21,7 +23,16 @@ export default function TaskQueue() {
       })
       .catch((e) => reportError(e))
       .finally(() => setLoading(false))
-  }, [])
+
+    // Poll import-process jobs so the progress bars update live.
+    const supportsProcess = modules.filter((m) => m.supports_process)
+    const pollJobs = async () => {
+      await Promise.all(supportsProcess.map((m) => api.modules.jobs(m.name).then((j) => setImportJobs((prev) => ({ ...prev, [m.name]: j }) ))))
+    }
+    const timer = setInterval(pollJobs, 2000)
+    pollJobs()
+    return () => clearInterval(timer)
+  }, [modules])
 
   const handleRun = async () => {
     setRunning(true)
@@ -39,8 +50,50 @@ export default function TaskQueue() {
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this task?')) {
-      await api.tasks.delete(id)
-      await api.tasks.list().then(setTasks)
+      try {
+        await api.tasks.delete(id)
+        await api.tasks.list().then(setTasks)
+      } catch (err) {
+        reportError(err)
+      }
+    }
+  }
+
+  const handleToggleEnabled = async (name: string) => {
+    try {
+      if (modules.find((m) => m.name === name)?.enabled) {
+        await api.modules.disable(name)
+      } else {
+        await api.modules.enable(name)
+      }
+      await api.modules.list().then(setModules)
+    } catch (err) {
+      reportError(err)
+    }
+  }
+
+  const handleStartProcess = async (name: string) => {
+    setProcessRunning((p) => ({ ...p, [name]: true }))
+    try {
+      const job = await api.modules.run(name, {})
+      await api.modules.jobs(name).then((j) => setImportJobs((prev) => ({ ...prev, [name]: j })))
+      if (job && job.id) {
+        // Surface the new job in the task queue.
+        await api.tasks.list().then(setTasks)
+      }
+    } catch (err) {
+      reportError(err)
+    } finally {
+      setProcessRunning((p) => ({ ...p, [name]: false }))
+    }
+  }
+
+  const handleStopProcess = async (name: string) => {
+    try {
+      await api.modules.stop(name)
+      await api.modules.jobs(name).then((j) => setImportJobs((prev) => ({ ...prev, [name]: j })))
+    } catch (err) {
+      reportError(err)
     }
   }
 
@@ -125,10 +178,10 @@ export default function TaskQueue() {
                     {new Date(task.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(task.id)} className="text-red-400 hover:text-red-300 mr-2">
+                    <button onClick={() => handleDelete(task.id)} className="text-red-400 hover:text-red-300 mr-2" title="Delete task">
                       <Trash2 size={16} />
                     </button>
-                    <a href={`/tasks/${task.id}`} className="text-deepvision-400 hover:text-deepvision-300">
+                    <a href={`/tasks/${task.id}`} className="text-deepvision-400 hover:text-deepvision-300" title="View task">
                       <ChevronRight size={16} />
                     </a>
                   </td>
@@ -145,13 +198,43 @@ export default function TaskQueue() {
             {modules.map((mod) => (
               <div key={mod.name} className="bg-deepvision-900 border border-deepvision-700 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-white font-medium">{mod.display_name}</h3>
-                  <span className={`text-xs px-2 py-1 rounded ${mod.enabled ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-                    {mod.enabled ? 'Enabled' : 'Disabled'}
-                  </span>
+                  <h3 className="text-white font-medium flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: mod.color }} />
+                    {mod.display_name}
+                  </h3>
+                  <button onClick={() => handleToggleEnabled(mod.name)} className={`text-xs px-2 py-1 rounded transition-colors ${
+                    mod.enabled ? 'bg-green-900/70 text-green-300 hover:bg-green-800' : 'bg-red-900/70 text-red-300 hover:bg-red-800'
+                  }`}>
+                    {mod.enabled ? 'Disable' : 'Enable'}
+                  </button>
                 </div>
                 <p className="text-gray-400 text-sm">{mod.description}</p>
                 <p className="text-gray-500 text-xs mt-1">v{mod.version}</p>
+
+                {mod.supports_process && (
+                  <div className="mt-3 pt-3 border-t border-deepvision-700">
+                    <div className="flex items-center justify-between mb-1">
+                      <button onClick={() => handleStartProcess(mod.name)} disabled={processRunning[mod.name]} className="text-xs px-2 py-1 rounded bg-blue-900/70 text-blue-300 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                        <Play size={12} />
+                        {processRunning[mod.name] ? 'Running...' : 'Start'}
+                      </button>
+                      <button onClick={() => handleStopProcess(mod.name)} disabled={!processRunning[mod.name]} className="text-xs px-2 py-1 rounded bg-red-900/70 text-red-300 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                        <CircleStop size={12} />
+                        Stop
+                      </button>
+                    </div>
+                    {importJobs[mod.name] && (
+                      <div>
+                        <div className="w-full bg-deepvision-800 rounded-full h-2 mt-1">
+                          <div className="h-2 rounded-full transition-all duration-300" style={{ width: `${importJobs[mod.name]?.progress || 0}%`, backgroundColor: processRunning[mod.name] ? '#93c5fd' : '#3b82f6' }} />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {importJobs[mod.name]?.imported || 0} / {importJobs[mod.name]?.total || 0} imported
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

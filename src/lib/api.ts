@@ -39,7 +39,13 @@ async function request<T>(
     reportError(apiErr, { endpoint: path, component: callerFromStack(apiErr.stack || '') })
     throw apiErr
   }
-  return res.json() as Promise<T>
+  try {
+    const data = await res.json()
+    return data
+  } catch {
+    // Empty body (e.g. 204 No Content) — nothing to parse.
+    return undefined as unknown as T
+  }
 }
 
 export const api = {
@@ -162,8 +168,17 @@ export const api = {
       request<{ status: string }>(`/api/v1/modules/${name}/disable`, {
         method: 'POST',
       }),
-    status: (name: string) =>
-      request<Record<string, any>>(`/api/v1/modules/${name}/status`),
+    run: (name: string, data: Record<string, any>) =>
+      request<any>(`/api/v1/modules/${name}/run`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    stop: (name: string) =>
+      request<{ status: string }>(`/api/v1/modules/${name}/stop`, {
+        method: 'POST',
+      }),
+    jobs: (name: string) =>
+      request<Record<string, any>[]>(`/api/v1/modules/${name}/jobs`),
   },
   feedback: {
     errors: {

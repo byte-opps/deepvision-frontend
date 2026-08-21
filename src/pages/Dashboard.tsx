@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { Image, TaskStats } from '../types'
 import { Image as ImageIcon, FileText, AlertTriangle } from 'lucide-react'
 
@@ -15,7 +16,7 @@ export default function Dashboard() {
         setStats(stats)
         setRecentImages(images)
       })
-      .catch(console.error)
+      .catch((e) => reportError(e))
       .finally(() => setLoading(false))
   }, [])
 

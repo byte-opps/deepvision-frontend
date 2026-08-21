@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { Task, TaskStats } from '../types'
 import { Play, Trash2, ChevronRight } from 'lucide-react'
 
@@ -18,7 +19,7 @@ export default function TaskQueue() {
         setStats(s)
         setModules(m)
       })
-      .catch(console.error)
+      .catch((e) => reportError(e))
       .finally(() => setLoading(false))
   }, [])
 
@@ -31,7 +32,7 @@ export default function TaskQueue() {
         setStats(s)
       })
     } catch (err) {
-      console.error(err)
+      reportError(err)
     }
     setRunning(false)
   }

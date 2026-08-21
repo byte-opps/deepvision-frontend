@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { Tag } from '../types'
 import { Plus, Trash2, Search } from 'lucide-react'
 
@@ -13,7 +14,7 @@ export default function Tagging() {
     // Load tags for first image (placeholder)
     api.tags.list('1')
       .then(setTags)
-      .catch(console.error)
+      .catch((e) => reportError(e))
   }, [])
 
   const handleAdd = async () => {

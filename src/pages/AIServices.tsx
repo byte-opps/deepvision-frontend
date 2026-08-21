@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Layout from '../components/Layout'
+import { reportError } from '../lib/error'
 import { Sparkles, Eye, Search } from 'lucide-react'
 
 export default function AIServices() {
@@ -14,7 +15,7 @@ export default function AIServices() {
       // Placeholder - actual implementation would need an image ID
       setCaption('AI caption generation is ready. Select an image to generate a caption.')
     } catch (err) {
-      console.error(err)
+      reportError(err)
     }
     setLoading(false)
   }

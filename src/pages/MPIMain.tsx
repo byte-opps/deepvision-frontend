@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { MpiProfile } from '../types'
 import { Plus, Trash2 } from 'lucide-react'
 
@@ -13,7 +14,7 @@ export default function MPIProfiles() {
   const [description, setDescription] = useState('')
 
   useEffect(() => {
-    api.mpi.profiles().then(setProfiles).catch(console.error).finally(() => setLoading(false))
+    api.mpi.profiles().then(setProfiles).catch((e) => reportError(e)).finally(() => setLoading(false))
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {

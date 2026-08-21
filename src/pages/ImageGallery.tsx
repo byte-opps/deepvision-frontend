@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { Image } from '../types'
 import { Search, Upload, Filter } from 'lucide-react'
 
@@ -12,7 +13,7 @@ export default function ImageGallery() {
   useEffect(() => {
     api.images.list({ search: search || undefined })
       .then(setImages)
-      .catch(console.error)
+      .catch((e) => reportError(e))
       .finally(() => setLoading(false))
   }, [search])
 
@@ -54,8 +55,12 @@ export default function ImageGallery() {
                 href={`/images/${img.id}`}
                 className="group block bg-deepvision-900 border border-deepvision-700 rounded-lg overflow-hidden hover:border-deepvision-500 transition-colors"
               >
-                <div className="aspect-square bg-deepvision-800 flex items-center justify-center">
-                  <span className="text-gray-600 text-sm">Image</span>
+                <div className="aspect-square bg-deepvision-800 overflow-hidden">
+                  <img
+                    src={api.images.file(img.id)}
+                    alt={img.original_filename}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  />
                 </div>
                 <div className="p-2">
                   <p className="text-sm text-white truncate">{img.original_filename}</p>

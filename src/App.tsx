@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './stores/auth'
+import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
+import ErrorReports from './pages/ErrorReports'
 import ImageGallery from './pages/ImageGallery'
 import ImageDetail from './pages/ImageDetail'
 import MPIProfiles from './pages/MPIMain'
@@ -17,7 +19,8 @@ import Settings from './pages/Settings'
 
 function App() {
   return (
-    <AuthProvider>
+    <ErrorBoundary component="App">
+      <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -110,10 +113,12 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/logs" element={<ErrorReports />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </ErrorBoundary>
   )
 }
 

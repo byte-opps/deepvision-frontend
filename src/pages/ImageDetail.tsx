@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { Image, Tag } from '../types'
-import { Camera, ExternalLink } from 'lucide-react'
+import { Camera } from 'lucide-react'
 
 export default function ImageDetail() {
   const { id } = useParams<{ id: string }>()
@@ -32,7 +33,7 @@ export default function ImageDetail() {
         setFileProps(fp)
         setColorAnalysis(ca)
       })
-      .catch(console.error)
+      .catch((e) => reportError(e))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -53,12 +54,16 @@ export default function ImageDetail() {
         </button>
 
         <div className="grid grid-cols-3 gap-6">
-          {/* Image viewer */}
-          <div className="col-span-2">
-            <div className="bg-deepvision-900 border border-deepvision-700 rounded-lg p-4">
-              <div className="aspect-video bg-deepvision-800 flex items-center justify-center mb-4">
-                <ExternalLink size={48} className="text-gray-600" />
-              </div>
+            {/* Image viewer */}
+            <div className="col-span-2">
+              <div className="bg-deepvision-900 border border-deepvision-700 rounded-lg p-4">
+                <div className="aspect-video bg-deepvision-800 overflow-hidden mb-4">
+                  <img
+                    src={api.images.file(image.id)}
+                    alt={image.original_filename}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               <h2 className="text-white text-lg font-semibold">{image.original_filename}</h2>
               <p className="text-gray-400 text-sm mt-1">
                 {formatBytes(image.size_bytes)} · {image.mime_type}

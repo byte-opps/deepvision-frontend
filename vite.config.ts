@@ -12,4 +12,8 @@ export default defineConfig({
       },
     },
   },
+  env: {
+    VITE_APP_VERSION: '1.0.0',
+    VITE_BUILD_HASH: process.env.VITE_BUILD_HASH || 'dev',
+  },
 })

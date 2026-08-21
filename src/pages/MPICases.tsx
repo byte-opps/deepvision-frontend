@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { MpiCase } from '../types'
 import { Plus, Trash2 } from 'lucide-react'
 
@@ -12,7 +13,7 @@ export default function MPICases() {
   const [description, setDescription] = useState('')
 
   useEffect(() => {
-    api.mpi.cases().then(setCases).catch(console.error).finally(() => setLoading(false))
+    api.mpi.cases().then(setCases).catch((e) => reportError(e)).finally(() => setLoading(false))
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {

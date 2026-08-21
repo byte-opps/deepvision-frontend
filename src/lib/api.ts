@@ -12,9 +12,12 @@ import type {
   Task,
   TaskStats,
   ModuleInfo,
+  ErrorReport,
 } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8076'
+
+import { reportError, callerFromStack } from './error'
 
 async function request<T>(
   path: string,
@@ -28,7 +31,13 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: 'Request failed' }))
-    throw new ApiError(error.detail || 'Request failed', res.status)
+    const apiErr = new ApiError(
+      extractDetail(error) || 'Request failed',
+      res.status
+    )
+    // Relay API failures to the backend for investigation.
+    reportError(apiErr, { endpoint: path, component: callerFromStack(apiErr.stack || '') })
+    throw apiErr
   }
   return res.json() as Promise<T>
 }
@@ -56,6 +65,7 @@ export const api = {
     get: (id: string) => request<Image>(`/api/v1/images/${id}`),
     delete: (id: string) =>
       request<void>(`/api/v1/images/${id}`, { method: 'DELETE' }),
+    file: (id: string) => `${API_BASE}/api/v1/images/${id}/file`,
   },
   ai: {
     caption: (id: string) =>
@@ -155,6 +165,26 @@ export const api = {
     status: (name: string) =>
       request<Record<string, any>>(`/api/v1/modules/${name}/status`),
   },
+  feedback: {
+    errors: {
+      list: (limit = 100, offset = 0) =>
+        request<{ count: number; reports: ErrorReport[] }>(
+          `/api/v1/feedback/errors?limit=${limit}&offset=${offset}`
+        ),
+    },
+  },
+}
+
+function extractDetail(error: any): string {
+  if (!error) return 'Request failed'
+  if (Array.isArray(error.detail)) {
+    return error.detail
+      .map((e: any) => e.msg || e.message || 'Request failed')
+      .join('; ')
+  }
+  if (typeof error.detail === 'string') return error.detail
+  if (typeof error.message === 'string') return error.message
+  return 'Request failed'
 }
 
 export class ApiError extends Error {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { Image } from '../types'
 import { Search } from 'lucide-react'
 
@@ -13,7 +14,7 @@ export default function MetadataBrowser() {
   const [colorAnalysis, setColorAnalysis] = useState<Record<string, any>>({})
 
   useEffect(() => {
-    api.images.list().then(setImages).catch(console.error)
+    api.images.list().then(setImages).catch((e) => reportError(e))
   }, [])
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function MetadataBrowser() {
           setFileProps(fp)
           setColorAnalysis(ca)
         })
-        .catch(console.error)
+        .catch((e) => reportError(e))
     }
   }, [selectedImage])
 

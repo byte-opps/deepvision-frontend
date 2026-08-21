@@ -115,3 +115,15 @@ export interface ApiError extends Error {
   status: number
   detail: string
 }
+
+export interface ErrorReport {
+  id: number
+  type: string
+  message: string
+  stack: string
+  component: string | null
+  action: string | null
+  endpoint: string | null
+  payload: string | null
+  created_at: string
+}

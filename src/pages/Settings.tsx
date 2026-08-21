@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useAuthStore } from '../stores/auth'
-import { Wifi, WifiOff } from 'lucide-react'
+import { reportError } from '../lib/error'
+import { Wifi, WifiOff, Info } from 'lucide-react'
 
 export default function Settings() {
   const { user, logout } = useAuthStore()
@@ -12,7 +13,10 @@ export default function Settings() {
     // Check API connectivity
     fetch('/api/health')
       .then(() => setApiStatus('connected'))
-      .catch(() => setApiStatus('disconnected'))
+      .catch(async () => {
+        await reportError(new Error('API health check failed'))
+        setApiStatus('disconnected')
+      })
   }, [])
 
   const handleLogout = () => {
@@ -45,6 +49,25 @@ export default function Settings() {
             <span className="text-white">{apiStatus === 'connected' ? 'API Connected' : 'API Disconnected'}</span>
           </div>
           <p className="text-gray-400 text-sm mt-2">API is running on http://localhost:8076</p>
+        </div>
+
+        {/* Version / About */}
+        <div className="bg-deepvision-900 border border-deepvision-700 rounded-lg p-6 mb-6">
+          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <Info size={18} className="text-deepvision-400" />
+            About
+          </h2>
+          <div className="space-y-2 text-sm">
+            <p className="text-gray-300">
+              Version: <span className="text-white font-mono">{import.meta.env.VITE_APP_VERSION}</span>
+            </p>
+            <p className="text-gray-300">
+              Build: <span className="text-white font-mono">{import.meta.env.VITE_BUILD_HASH}</span>
+            </p>
+            <p className="text-gray-400 text-xs mt-2">
+              The build hash changes every time the frontend is rebuilt. Use it to confirm your app is up to date.
+            </p>
+          </div>
         </div>
 
         {/* Modules */}

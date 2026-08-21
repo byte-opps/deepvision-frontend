@@ -10,6 +10,7 @@ import {
   FileText,
   ListTodo,
   Settings,
+  ServerCrash,
   LogOut,
 } from 'lucide-react'
 import { useAuth } from '../stores/auth'
@@ -23,6 +24,7 @@ const navItems = [
   { path: '/metadata', label: 'Metadata', icon: FileText },
   { path: '/tasks', label: 'Tasks', icon: ListTodo },
   { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/logs', label: 'Error Logs', icon: ServerCrash },
 ]
 
 export default function Sidebar() {

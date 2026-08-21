@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import { reportError } from '../lib/error'
 import type { MpiProfile, MpiBodyPart, MpiIntelligence } from '../types'
 import { User, MapPin, Calendar, Target } from 'lucide-react'
 
@@ -20,7 +21,7 @@ export default function MPIDetail() {
         setBodyParts(bp)
         setIntelligence(intel)
       })
-      .catch(console.error)
+      .catch((e) => reportError(e))
       .finally(() => setLoading(false))
   }, [id])
 

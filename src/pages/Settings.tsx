@@ -65,7 +65,7 @@ export default function Settings() {
               Build: <span className="text-white font-mono">{import.meta.env.VITE_BUILD_HASH}</span>
             </p>
             <p className="text-gray-400 text-xs mt-2">
-              The build hash changes every time the frontend is rebuilt. Use it to confirm your app is up to date.
+              The build hash is set via the VITE_BUILD_HASH environment variable (defaults to 'dev'). Use it to confirm your app is up to date.
             </p>
           </div>
         </div>

@@ -33,7 +33,7 @@ export default function Settings() {
           <h2 className="text-white font-semibold mb-4">Account</h2>
           <div className="space-y-2">
             <p className="text-gray-300">Username: <span className="text-white">{user?.username || 'N/A'}</span></p>
-            <p className="text-gray-300">Email: <span className="text-white">N/A</span></p>
+            <p className="text-gray-300">Email: <span className="text-white">{user?.email || 'N/A'}</span></p>
           </div>
         </div>
 

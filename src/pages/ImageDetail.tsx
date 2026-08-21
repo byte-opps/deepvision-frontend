@@ -139,7 +139,7 @@ export default function ImageDetail() {
                   <p className="text-gray-400">Uploaded</p>
                   <p className="text-white">{new Date(image.uploaded_at).toLocaleString()}</p>
                 </div>
-                {image.nsfw_score !== undefined && (
+                {typeof image.nsfw_score === 'number' && (
                   <div>
                     <p className="text-gray-400">NSFW Score</p>
                     <p className="text-white">{image.nsfw_score.toFixed(2)}</p>

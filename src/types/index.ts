@@ -39,6 +39,17 @@ export interface FaceDetection {
   landmarks?: Record<string, any>
   age_estimate?: string | null
   gender?: string
+  embedding?: number[]
+}
+
+export interface FaceMatch {
+  id: string
+  image_id: string
+  filename: string
+  confidence: number
+  bbox: { x: number; y: number; width: number; height: number }
+  age_estimate?: string | null
+  gender?: string
 }
 
 export interface CaptionResult {

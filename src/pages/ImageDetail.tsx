@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useParams, useNavigate } from 'react-router-dom'
+import FaceOverlay from '../components/FaceOverlay'
 import { api } from '../lib/api'
 import { reportError } from '../lib/error'
-import type { Image, Tag } from '../types'
-import { Camera } from 'lucide-react'
+import type { Image, Tag, FaceDetection, FaceMatch } from '../types'
+import { Camera, Scan, Search } from 'lucide-react'
 
 export default function ImageDetail() {
   const { id } = useParams<{ id: string }>()
@@ -16,6 +17,10 @@ export default function ImageDetail() {
   const [exif, setExif] = useState<Record<string, any>>({})
   const [fileProps, setFileProps] = useState<Record<string, any>>({})
   const [colorAnalysis, setColorAnalysis] = useState<Record<string, any>>({})
+  const [faces, setFaces] = useState<FaceDetection[]>([])
+  const [selectedFace, setSelectedFace] = useState<FaceDetection | null>(null)
+  const [matchResults, setMatchResults] = useState<FaceMatch[]>([])
+  const [faceLoading, setFaceLoading] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -26,16 +31,48 @@ export default function ImageDetail() {
       api.metadata.fileProperties(id!),
       api.metadata.colorAnalysis(id!),
     ])
-      .then(([img, tg, ex, fp, ca]) => {
+      .then(([img, tg, storedFaces, ex, fp, ca]) => {
         setImage(img)
         setTags(tg)
         setExif(ex)
         setFileProps(fp)
         setColorAnalysis(ca)
+        setFaces(storedFaces)
       })
       .catch((e) => reportError(e))
       .finally(() => setLoading(false))
   }, [id])
+
+  const runFaceDetection = async () => {
+    if (!image) return
+    setFaceLoading(true)
+    try {
+      const detected = await api.face.detect(image.file_path, {
+        confidence_threshold: 0.5,
+        max_faces: 50,
+      })
+      setFaces(detected)
+      setSelectedFace(null)
+      setMatchResults([])
+    } catch (e) {
+      reportError(e)
+    } finally {
+      setFaceLoading(false)
+    }
+  }
+
+  const runFaceMatch = async () => {
+    if (!selectedFace) return
+    setFaceLoading(true)
+    try {
+      const matches = await api.face.search(selectedFace.embedding || [], 0.6)
+      setMatchResults(matches)
+    } catch (e) {
+      reportError(e)
+    } finally {
+      setFaceLoading(false)
+    }
+  }
 
   if (loading) return <div className="p-8 text-gray-400">Loading...</div>
   if (!image) return <div className="p-8 text-gray-400">Image not found</div>
@@ -57,17 +94,96 @@ export default function ImageDetail() {
             {/* Image viewer */}
             <div className="col-span-2">
               <div className="bg-deepvision-900 border border-deepvision-700 rounded-lg p-4">
-                <div className="aspect-video bg-deepvision-800 overflow-hidden mb-4">
-                  <img
-                    src={api.images.file(image.id)}
-                    alt={image.original_filename}
-                    className="w-full h-full object-cover"
-                  />
+                <div className="relative bg-deepvision-800 overflow-auto rounded-lg p-2 mb-4">
+                  <div style={{ position: 'relative', width: '100%' }} className="inline-block">
+                    <img
+                      src={api.images.file(image.id)}
+                      alt={image.original_filename}
+                      style={{ width: image.width, height: image.height }}
+                    />
+                    {faces.length > 0 && (
+                      <FaceOverlay
+                        imageSrc={api.images.file(image.id)}
+                        imageWidth={image.width}
+                        imageHeight={image.height}
+                        faces={faces}
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <button
+                      onClick={runFaceDetection}
+                      disabled={faceLoading}
+                      className="inline-flex items-center gap-2 bg-deepvision-600 hover:bg-deepvision-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg"
+                    >
+                      <Scan size={16} /> Detect faces
+                    </button>
+                    <button
+                      onClick={runFaceMatch}
+                      disabled={!selectedFace || faceLoading}
+                      className="inline-flex items-center gap-2 bg-deepvision-600 hover:bg-deepvision-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg"
+                    >
+                      <Search size={16} /> Match face
+                    </button>
+                  </div>
                 </div>
               <h2 className="text-white text-lg font-semibold">{image.original_filename}</h2>
               <p className="text-gray-400 text-sm mt-1">
                 {formatBytes(image.size_bytes)} · {image.mime_type}
               </p>
+
+              {faces.length > 0 && (
+                <div className="mt-4 bg-deepvision-900 border border-deepvision-700 rounded-lg p-4">
+                  <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                    <Scan size={16} className="text-deepvision-400" /> Detected faces ({faces.length})
+                  </h3>
+
+                  {selectedFace && (
+                    <div className="mb-3 text-sm">
+                      <p className="text-gray-400">Selected</p>
+                      <p className="text-white">Face #{selectedFace.id}</p>
+                      <p className="text-gray-500 text-xs mt-1">
+                        Confidence {(selectedFace.confidence ?? 0).toFixed(2)} · Gender: {selectedFace.gender ?? 'N/A'} · Age: {selectedFace.age_estimate ?? 'N/A'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 max-h-64 overflow-auto">
+                    {faces.map((face) => (
+                      <button
+                        key={face.id}
+                        onClick={() => { setSelectedFace(face); setMatchResults([]) }}
+                        className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between ${
+                          selectedFace?.id === face.id
+                            ? 'bg-deepvision-700 text-white'
+                            : 'bg-deepvision-800 text-gray-300 hover:bg-deepvision-700'
+                        }`}
+                      >
+                        <span>Face #{face.id}</span>
+                        <span className="text-xs text-gray-400">{(face.confidence ?? 0).toFixed(2)}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {matchResults.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-deepvision-700">
+                      <p className="text-gray-400 text-sm mb-2">Similar faces ({matchResults.length})</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {matchResults.map((m) => (
+                          <button
+                            key={m.image_id}
+                            onClick={() => navigate(`/images/${m.image_id}`)}
+                            className="text-left px-2 py-2 bg-deepvision-800 hover:bg-deepvision-700 rounded-lg"
+                          >
+                            <p className="text-white text-sm truncate">{m.filename}</p>
+                            <p className="text-green-400 text-xs">{(m.confidence ?? 0).toFixed(2)}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Metadata tabs */}

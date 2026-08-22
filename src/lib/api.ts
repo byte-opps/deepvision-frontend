@@ -4,6 +4,7 @@ import type {
   Image,
   CaptionResult,
   FaceDetection,
+  FaceMatch,
   MpiProfile,
   MpiBodyPart,
   MpiIntelligence,
@@ -19,15 +20,17 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8076'
 
 import { reportError, callerFromStack } from './error'
 
+type RequestOptions = RequestInit & { contentType?: string }
+
 async function request<T>(
   path: string,
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<T> {
   const token = localStorage.getItem('auth_token')
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
+  const contentType = options?.contentType
+  const headers: Record<string, string> = contentType
+    ? { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+    : { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: 'Request failed' }))
@@ -72,6 +75,12 @@ export const api = {
     delete: (id: string) =>
       request<void>(`/api/v1/images/${id}`, { method: 'DELETE' }),
     file: (id: string) => `${API_BASE}/api/v1/images/${id}/file`,
+    upload: (file: File) =>
+      request<Image>(`/api/v1/images/`, {
+        method: 'POST',
+        contentType: 'multipart/form-data',
+        body: file,
+      }),
   },
   ai: {
     caption: (id: string) =>
@@ -80,8 +89,23 @@ export const api = {
       request<FaceDetection[]>(`/api/v1/ai/face/${id}`),
     faceMatch: (data: { embedding: string }) =>
       request<{ matches: any[] }>(`/api/v1/ai/face-match`, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify(data),
+      }),
+  },
+  face: {
+    detect: (
+      imagePath: string,
+      opts?: { confidence_threshold?: number; max_faces?: number }
+    ) =>
+      request<FaceDetection[]>("/api/v1/modules/face_detection/detect", {
+        method: "POST",
+        body: JSON.stringify({ image_path: imagePath, ...opts }),
+      }),
+    search: (embedding: number[], threshold?: number) =>
+      request<FaceMatch[]>("/api/v1/modules/face_detection/search", {
+        method: "POST",
+        body: JSON.stringify({ reference_embedding: embedding, confidence_threshold: threshold }),
       }),
   },
   mpi: {
@@ -156,6 +180,25 @@ export const api = {
       request<Task>('/api/v1/tasks/run', { method: 'POST' }),
     delete: (id: string) =>
       request<void>(`/api/v1/tasks/${id}`, { method: 'DELETE' }),
+  },
+  services: {
+    status: () =>
+      request<Record<string, { status: string; active: boolean }>>('/api/v1/services/status'),
+    start: (service?: string) =>
+      request<Record<string, { ok: boolean; error: string }>>(
+        '/api/v1/services/start' + (service ? '?service=' + service : ''),
+        { method: 'POST' }
+      ),
+    stop: (service?: string) =>
+      request<Record<string, { ok: boolean; error: string }>>(
+        '/api/v1/services/stop' + (service ? '?service=' + service : ''),
+        { method: 'POST' }
+      ),
+    restart: (service?: string) =>
+      request<Record<string, { ok: boolean; error: string }>>(
+        '/api/v1/services/restart' + (service ? '?service=' + service : ''),
+        { method: 'POST' }
+      ),
   },
   modules: {
     list: () => request<ModuleInfo[]>('/api/v1/modules'),
